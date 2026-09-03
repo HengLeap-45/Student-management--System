@@ -1,9 +1,9 @@
 import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 
-
-class Student implements Serializable {
+public class Student implements Serializable {
     private static final long serialVersionUID = 1L;
     private int studentId;
     private String name;
@@ -96,16 +96,18 @@ class Student implements Serializable {
     
     // Methods
     public void enrollCourse(Course course) {
-        if (!courses.contains(course)) {
+        if (course != null && !courses.contains(course)) {
             courses.add(course);
         }
     }
     
-    public void addGrade(double grade) {
+    public boolean addGrade(double grade) {
         if (grade >= 0 && grade <= 100) {
             grades.add(grade);
+            return true;
         } else {
             System.out.println("Invalid grade. Grade must be between 0 and 100.");
+            return false;
         }
     }
     
@@ -142,5 +144,68 @@ class Student implements Serializable {
                 ", courses=" + courses.size() +
                 ", GPA=" + String.format("%.2f", calculateGPA()) +
                 '}';
+    }
+    
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) return true;
+        if (o == null || getClass() != o.getClass()) return false;
+        Student student = (Student) o;
+        return studentId == student.studentId;
+    }
+    
+    @Override
+    public int hashCode() {
+        return Objects.hash(studentId);
+    }
+    
+    // Main method for demonstration and testing
+    public static void main(String[] args) {
+        System.out.println("=== STUDENT MANAGEMENT SYSTEM - STUDENT DEMO ===");
+        
+        // 1. Create a Student
+        Student student = new Student(
+                101,
+                "Alice Johnson",
+                "alice.johnson@example.com",
+                "+1-555-0199",
+                "2002-05-15",
+                "123 University Ave, Cityville",
+                "2024-09-01"
+        );
+        
+        System.out.println("\nCreated Student:");
+        System.out.println(student);
+        
+        // 2. Create Courses and Enroll
+        Course cs101 = new Course("CS101", "Introduction to Computer Science", "Dr. Smith", 3, "Mon/Wed 10:00 AM", 30);
+        Course math201 = new Course("MATH201", "Calculus I", "Dr. Davis", 4, "Tue/Thu 2:00 PM", 25);
+        
+        student.enrollCourse(cs101);
+        student.enrollCourse(math201);
+        
+        System.out.println("\nEnrolled Courses (" + student.getCourses().size() + "):");
+        for (Course course : student.getCourses()) {
+            System.out.println(" - " + course.getCourseName() + " (" + course.getCourseId() + ") by " + course.getInstructor());
+        }
+        
+        // 3. Add Grades
+        student.addGrade(95.0);
+        student.addGrade(88.5);
+        student.addGrade(91.0);
+        
+        System.out.println("\nGrades:");
+        List<Double> grades = student.getGrades();
+        for (int i = 0; i < grades.size(); i++) {
+            System.out.println(" - Grade " + (i + 1) + ": " + grades.get(i));
+        }
+        
+        // 4. Calculate GPA and Grade Point
+        System.out.println("\nAcademic Standing:");
+        System.out.println(" - GPA: " + String.format("%.2f", student.calculateGPA()));
+        System.out.println(" - Grade Letter: " + student.getGradePoint());
+        
+        System.out.println("\nUpdated Student Summary:");
+        System.out.println(student);
     }
 }

@@ -17,6 +17,10 @@ public class StudentManagemenT {
     // ==================== STUDENT MANAGEMENT ====================
     
     public void addStudent(Student student) {
+        if (student == null) {
+            System.out.println("Error: Student cannot be null.");
+            return;
+        }
         if (students.containsKey(student.getStudentId())) {
             System.out.println("Error: Student with ID " + student.getStudentId() + " already exists.");
             return;
@@ -27,7 +31,16 @@ public class StudentManagemenT {
     }
     
     public void removeStudent(int studentId) {
-        if (students.remove(studentId) != null) {
+        Student student = students.get(studentId);
+        if (student != null) {
+            // Update enrollment counts in courses
+            for (Course enrolledCourse : student.getCourses()) {
+                Course systemCourse = courses.get(enrolledCourse.getCourseId());
+                if (systemCourse != null) {
+                    systemCourse.removeStudent();
+                }
+            }
+            students.remove(studentId);
             System.out.println("Student removed successfully.");
             saveData();
         } else {
@@ -66,8 +79,11 @@ public class StudentManagemenT {
     
     public List<Student> searchStudentByName(String name) {
         List<Student> result = new ArrayList<>();
+        if (name == null || name.trim().isEmpty()) {
+            return result;
+        }
         for (Student student : students.values()) {
-            if (student.getName().toLowerCase().contains(name.toLowerCase())) {
+            if (student.getName() != null && student.getName().toLowerCase().contains(name.toLowerCase())) {
                 result.add(student);
             }
         }
@@ -77,6 +93,10 @@ public class StudentManagemenT {
     // ==================== COURSE MANAGEMENT ====================
     
     public void addCourse(Course course) {
+        if (course == null) {
+            System.out.println("Error: Course cannot be null.");
+            return;
+        }
         if (courses.containsKey(course.getCourseId())) {
             System.out.println("Error: Course with ID " + course.getCourseId() + " already exists.");
             return;
@@ -87,7 +107,16 @@ public class StudentManagemenT {
     }
     
     public void removeCourse(String courseId) {
-        if (courses.remove(courseId) != null) {
+        if (courseId == null) {
+            System.out.println("Error: Course ID cannot be null.");
+            return;
+        }
+        Course course = courses.remove(courseId);
+        if (course != null) {
+            // Remove course from all students enrolled
+            for (Student student : students.values()) {
+                student.getCourses().remove(course);
+            }
             System.out.println("Course removed successfully.");
             saveData();
         } else {
@@ -96,6 +125,9 @@ public class StudentManagemenT {
     }
     
     public Course getCourse(String courseId) {
+        if (courseId == null) {
+            return null;
+        }
         return courses.get(courseId);
     }
     
@@ -114,7 +146,7 @@ public class StudentManagemenT {
     
     public void enrollStudentInCourse(int studentId, String courseId) {
         Student student = students.get(studentId);
-        Course course = courses.get(courseId);
+        Course course = (courseId != null) ? courses.get(courseId) : null;
         
         if (student == null) {
             System.out.println("Error: Student with ID " + studentId + " not found.");
@@ -122,6 +154,10 @@ public class StudentManagemenT {
         }
         if (course == null) {
             System.out.println("Error: Course with ID " + courseId + " not found.");
+            return;
+        }
+        if (student.getCourses().contains(course)) {
+            System.out.println("Error: Student is already enrolled in this course.");
             return;
         }
         if (course.isFull()) {
@@ -137,7 +173,7 @@ public class StudentManagemenT {
     
     public void removeStudentFromCourse(int studentId, String courseId) {
         Student student = students.get(studentId);
-        Course course = courses.get(courseId);
+        Course course = (courseId != null) ? courses.get(courseId) : null;
         
         if (student == null || course == null) {
             System.out.println("Error: Student or Course not found.");
@@ -176,12 +212,19 @@ public class StudentManagemenT {
     
     public void addGradeToStudent(int studentId, double grade) {
         Student student = students.get(studentId);
-        if (student != null) {
-            student.addGrade(grade);
+        if (student == null) {
+            System.out.println("Error: Student with ID " + studentId + " not found.");
+            return;
+        }
+        
+        if (grade < 0 || grade > 100) {
+            System.out.println("Invalid grade. Grade must be between 0 and 100.");
+            return;
+        }
+        
+        if (student.addGrade(grade)) {
             System.out.println("Grade added to " + student.getName());
             saveData();
-        } else {
-            System.out.println("Error: Student with ID " + studentId + " not found.");
         }
     }
     
@@ -202,7 +245,7 @@ public class StudentManagemenT {
         for (int i = 0; i < grades.size(); i++) {
             System.out.println("Grade " + (i + 1) + ": " + grades.get(i));
         }
-        System.out.println("GPA: " + String.format("%.2f", student.calculateGPA()));
+        System.out.println("GPA: " + String.format(Locale.US, "%.2f", student.calculateGPA()));
         System.out.println("Grade Point: " + student.getGradePoint());
     }
     
@@ -210,19 +253,35 @@ public class StudentManagemenT {
     
     @SuppressWarnings("unchecked")
     private void loadData() {
-        try (ObjectInputStream ois = new ObjectInputStream(new FileInputStream(STUDENTS_FILE))) {
-            students = (Map<Integer, Student>) ois.readObject();
-            System.out.println("Students data loaded successfully.");
-        } catch (IOException | ClassNotFoundException e) {
-            System.out.println("No previous student data found. Starting with empty database.");
+        File studentsFile = new File(STUDENTS_FILE);
+        if (studentsFile.exists()) {
+            try (ObjectInputStream ois = new ObjectInputStream(new FileInputStream(studentsFile))) {
+                students = (Map<Integer, Student>) ois.readObject();
+                if (students == null) {
+                    students = new HashMap<>();
+                }
+                System.out.println("Students data loaded successfully.");
+            } catch (IOException | ClassNotFoundException e) {
+                System.out.println("No previous student data found. Starting with empty database.");
+                students = new HashMap<>();
+            }
+        } else {
             students = new HashMap<>();
         }
         
-        try (ObjectInputStream ois = new ObjectInputStream(new FileInputStream(COURSES_FILE))) {
-            courses = (Map<String, Course>) ois.readObject();
-            System.out.println("Courses data loaded successfully.");
-        } catch (IOException | ClassNotFoundException e) {
-            System.out.println("No previous course data found. Starting with empty database.");
+        File coursesFile = new File(COURSES_FILE);
+        if (coursesFile.exists()) {
+            try (ObjectInputStream ois = new ObjectInputStream(new FileInputStream(coursesFile))) {
+                courses = (Map<String, Course>) ois.readObject();
+                if (courses == null) {
+                    courses = new HashMap<>();
+                }
+                System.out.println("Courses data loaded successfully.");
+            } catch (IOException | ClassNotFoundException e) {
+                System.out.println("No previous course data found. Starting with empty database.");
+                courses = new HashMap<>();
+            }
+        } else {
             courses = new HashMap<>();
         }
     }
